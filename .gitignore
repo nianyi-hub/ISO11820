@@ -427,3 +427,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+
+# Project runtime generated files (SQLite DB and test reports)
+*.db
+TestData/
+Reports/
