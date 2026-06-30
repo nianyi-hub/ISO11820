@@ -309,7 +309,9 @@ namespace ISO11820System.Data
         {
             using var conn = new SqliteConnection(_connectionString);
             conn.Open();
+            using var transaction = conn.BeginTransaction();
             using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
             cmd.CommandText = @"
                 INSERT OR REPLACE INTO productmaster (productid, productname, specific, diameter, height, flag)
                 VALUES (@id, @name, @spec, @dia, @height, @flag)";
@@ -319,7 +321,17 @@ namespace ISO11820System.Data
             cmd.Parameters.AddWithValue("@dia", product.Diameter);
             cmd.Parameters.AddWithValue("@height", product.Height);
             cmd.Parameters.AddWithValue("@flag", product.Flag ?? "");
-            cmd.ExecuteNonQuery();
+
+            try
+            {
+                cmd.ExecuteNonQuery();
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
         // ===== 创建新试验记录（初始值）=====
@@ -327,7 +339,9 @@ namespace ISO11820System.Data
         {
             using var conn = new SqliteConnection(_connectionString);
             conn.Open();
+            using var transaction = conn.BeginTransaction();
             using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
             cmd.CommandText = @"
                 INSERT INTO testmaster (
                     productid, testid, testdate, operator, ambtemp, ambhumi,
@@ -358,7 +372,17 @@ namespace ISO11820System.Data
             cmd.Parameters.AddWithValue("@achk", test.ApparatusCheckDate.ToString("yyyy-MM-dd"));
             cmd.Parameters.AddWithValue("@rpt", test.ReportNo);
             cmd.Parameters.AddWithValue("@pre", test.PreWeight);
-            cmd.ExecuteNonQuery();
+
+            try
+            {
+                cmd.ExecuteNonQuery();
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
         // ===== 更新试验结果 =====
