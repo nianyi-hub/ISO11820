@@ -1,41 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Serilog;
+using System;
+using System.IO;
 
 namespace ISO11820System.Utilities
 {
-    /// <summary>
-    /// 日志工具类（封装Serilog）
-    /// </summary>
     public static class Logger
     {
-        private static ILogger? _logger;
+        private static readonly string LogPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "system.log");
 
-        /// <summary>
-        /// 初始化日志系统
-        /// </summary>
-        public static void Initialize(string logDirectory = "Logs", string fileNameTemplate = "ISO11820_{Date}.log")
+        public static void Info(string msg)
         {
-            var logPath = Path.Combine(logDirectory, fileNameTemplate);
-
-            _logger = new LoggerConfiguration()
-                .MinimumLevel.Information()
-                .WriteTo.File(
-                    logPath,
-                    rollingInterval: RollingInterval.Day,
-                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-                .CreateLogger();
-
-            Log.Logger = _logger;
+            Write($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [INFO] {msg}");
         }
 
-        public static void Info(string message) => _logger?.Information(message);
-        public static void Warning(string message) => _logger?.Warning(message);
-        public static void Error(string message, Exception? ex = null) => _logger?.Error(ex, message);
-        public static void Debug(string message) => _logger?.Debug(message);
+        public static void Warn(string msg)
+        {
+            Write($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [WARN] {msg}");
+        }
+
+        public static void Error(string msg)
+        {
+            Write($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ERROR] {msg}");
+        }
+
+        private static void Write(string text)
+        {
+            File.AppendAllText(LogPath, text + Environment.NewLine);
+        }
     }
 }
