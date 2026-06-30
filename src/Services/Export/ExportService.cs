@@ -87,6 +87,8 @@ namespace ISO11820System.Services
 
         public void ExportExcel(TestMaster test, List<(int Time, double TF1, double TF2, double TS, double TC, double TCal)> data, string filePath)
         {
+            if (data == null || data.Count == 0) return;
+
             var dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
