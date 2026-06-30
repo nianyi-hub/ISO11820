@@ -14,6 +14,7 @@ namespace ISO11820System.Services
     public class ExportService
     {
         private static bool _fontRegistered = false;
+        private static string _defaultFontFamily = "Arial"; // 兜底字体
 
         public ExportService()
         {
@@ -24,6 +25,7 @@ namespace ISO11820System.Services
 
         /// <summary>
         /// 注册中文字体（QuestPDF一次注册，全局生效）
+        /// 自动检测系统可用字体，优先微软雅黑，次选宋体，最终回退Arial
         /// </summary>
         private static void RegisterChineseFont()
         {
@@ -31,22 +33,29 @@ namespace ISO11820System.Services
             _fontRegistered = true;
 
             var fontsDir = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
-            // 尝试多个中文字体文件，用 QuestPDF 内置注册
-            var candidates = new[] { "msyh.ttc", "simsun.ttc", "msyhbd.ttc" };
-            foreach (var f in candidates)
+
+            // 按优先级尝试注册中文字体：微软雅黑 → 宋体 → 微软雅黑粗体
+            var candidates = new[] {
+                ("msyh.ttc", "Microsoft YaHei"),
+                ("simsun.ttc", "SimSun"),
+                ("msyhbd.ttc", "Microsoft YaHei")
+            };
+            foreach (var (fileName, fontFamily) in candidates)
             {
-                var path = Path.Combine(fontsDir, f);
+                var path = Path.Combine(fontsDir, fileName);
                 if (File.Exists(path))
                 {
                     try
                     {
                         using var fs = File.OpenRead(path);
                         QuestPDF.Drawing.FontManager.RegisterFont(fs);
+                        _defaultFontFamily = fontFamily; // 记录成功注册的字体
                         break;
                     }
                     catch { }
                 }
             }
+
             // 同时也注册 Arial 作为兜底
             var arialPath = Path.Combine(fontsDir, "arial.ttf");
             if (File.Exists(arialPath))
@@ -179,7 +188,7 @@ namespace ISO11820System.Services
                 {
                     page.Size(PageSizes.A4);
                     page.Margin(40);
-                    page.DefaultTextStyle(x => x.FontFamily("Microsoft YaHei").FontSize(11));
+                    page.DefaultTextStyle(x => x.FontFamily(_defaultFontFamily).FontSize(11));
 
                     page.Content().Column(col =>
                     {
