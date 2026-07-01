@@ -44,6 +44,10 @@ namespace ISO11820System.Utilities
         public double TempFluctuation => double.Parse(_configuration["Simulation:TempFluctuation"] ?? "0.5");
         public double StableThreshold => double.Parse(_configuration["Simulation:StableThreshold"] ?? "3");
         public bool SimulateFlame => bool.Parse(_configuration["Simulation:SimulateFlame"] ?? "false");
+        public double SurfaceFollowRatio => double.Parse(_configuration["Simulation:SurfaceFollowRatio"] ?? "0.3");
+        public double CenterFollowRatio => double.Parse(_configuration["Simulation:CenterFollowRatio"] ?? "0.25");
+        public double SurfaceApproachRate => double.Parse(_configuration["Simulation:SurfaceApproachRate"] ?? "0.02");
+        public double CenterApproachRate => double.Parse(_configuration["Simulation:CenterApproachRate"] ?? "0.01");
 
         // ===== 文件存储配置 =====
         public string BaseDirectory => ResolvePath(_configuration["FileStorage:BaseDirectory"] ?? "Data");
