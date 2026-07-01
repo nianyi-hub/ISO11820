@@ -1,120 +1,112 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
+namespace ISO11820System.Forms
+{
+    /// <summary>
+    /// 试验记录窗体（保存试验后质量和火焰信息）
+    /// </summary>
+    public partial class TestRecordForm : Form
+    {
+        public double PostWeight { get; private set; }
+        public bool HasFlame { get; private set; }
+        public int FlameTime { get; private set; }
+        public int FlameDuration { get; private set; }
+        public string Memo { get; private set; } = "";
 
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
-  <resheader name="resmimetype">
-    <value>text/microsoft-resx</value>
-  </resheader>
-  <resheader name="version">
-    <value>2.0</value>
-  </resheader>
-  <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-</root>
+        private TextBox txtPostWeight, txtFlameTime, txtFlameDuration, txtMemo;
+        private CheckBox chkHasFlame;
+        private Button btnSave, btnCancel;
+
+        public TestRecordForm()
+        {
+            InitializeComponent();
+        }
+
+        private void InitializeComponent()
+        {
+            this.Text = "保存试验记录";
+            this.Size = new Size(450, 380);
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+
+            int y = 25;
+
+            // 试验后质量
+            var lblPostWeight = new Label { Text = "试验后质量(g):", Location = new Point(30, y), Size = new Size(120, 25) };
+            txtPostWeight = new TextBox { Location = new Point(160, y), Size = new Size(200, 25) };
+            y += 40;
+
+            // 火焰信息
+            chkHasFlame = new CheckBox { Text = "出现持续火焰", Location = new Point(30, y), Size = new Size(150, 25) };
+            chkHasFlame.CheckedChanged += (s, e) =>
+            {
+                txtFlameTime.Enabled = chkHasFlame.Checked;
+                txtFlameDuration.Enabled = chkHasFlame.Checked;
+            };
+            y += 35;
+
+            var lblFlameTime = new Label { Text = "火焰发生时刻(秒):", Location = new Point(30, y), Size = new Size(120, 25) };
+            txtFlameTime = new TextBox { Location = new Point(160, y), Size = new Size(200, 25), Enabled = false };
+            y += 35;
+
+            var lblFlameDuration = new Label { Text = "火焰持续时间(秒):", Location = new Point(30, y), Size = new Size(120, 25) };
+            txtFlameDuration = new TextBox { Location = new Point(160, y), Size = new Size(200, 25), Enabled = false };
+            y += 40;
+
+            // 备注
+            var lblMemo = new Label { Text = "备注:", Location = new Point(30, y), Size = new Size(120, 25) };
+            txtMemo = new TextBox
+            {
+                Location = new Point(160, y),
+                Size = new Size(200, 60),
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical
+            };
+            y += 70;
+
+            // 按钮
+            btnSave = new Button { Text = "保存", Location = new Point(120, y), Size = new Size(100, 35) };
+            btnCancel = new Button { Text = "取消", Location = new Point(240, y), Size = new Size(100, 35) };
+
+            btnSave.Click += BtnSave_Click;
+            btnCancel.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
+
+            this.Controls.AddRange(new Control[] {
+                lblPostWeight, txtPostWeight,
+                chkHasFlame,
+                lblFlameTime, txtFlameTime,
+                lblFlameDuration, txtFlameDuration,
+                lblMemo, txtMemo,
+                btnSave, btnCancel
+            });
+        }
+
+        private void BtnSave_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                PostWeight = double.Parse(txtPostWeight.Text);
+                HasFlame = chkHasFlame.Checked;
+
+                if (HasFlame)
+                {
+                    FlameTime = int.TryParse(txtFlameTime.Text, out int ft) ? ft : 0;
+                    FlameDuration = int.TryParse(txtFlameDuration.Text, out int fd) ? fd : 0;
+                }
+                else
+                {
+                    FlameTime = 0;
+                    FlameDuration = 0;
+                }
+
+                Memo = txtMemo.Text.Trim();
+
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            catch
+            {
+                MessageBox.Show("请输入有效的数值", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+}
