@@ -20,6 +20,10 @@ namespace ISO11820System.Services
         public double HeatingRate { get; set; } = 40.0; // 升温速度（°C/s）
         public double TempFluctuation { get; set; } = 0.5;
         public double StableThreshold { get; set; } = 3.0;
+        public double SurfaceFollowRatio { get; set; } = 0.3;
+        public double CenterFollowRatio { get; set; } = 0.25;
+        public double SurfaceApproachRate { get; set; } = 0.02;
+        public double CenterApproachRate { get; set; } = 0.01;
 
         // 当前温度值
         public double TF1 { get; private set; } = 25.0;
@@ -117,8 +121,8 @@ namespace ISO11820System.Services
                     // 表面温和中心温在非记录阶段跟随较慢
                     if (!_isRecording)
                     {
-                        TS = TF1 * 0.3 + GetNoise();
-                        TC = TF1 * 0.25 + GetNoise();
+                        TS = TF1 * SurfaceFollowRatio + GetNoise();
+                        TC = TF1 * CenterFollowRatio + GetNoise();
                     }
                 }
                 else
@@ -145,10 +149,10 @@ namespace ISO11820System.Services
                 if (_isRecording)
                 {
                     double surfaceTarget = Math.Min(TF1 * 0.95, 800);
-                    TS += (surfaceTarget - TS) * 0.02 + GetNoise();
+                    TS += (surfaceTarget - TS) * SurfaceApproachRate + GetNoise();
 
                     double centerTarget = Math.Min(TF1 * 0.85, 750);
-                    TC += (centerTarget - TC) * 0.01 + GetNoise();
+                    TC += (centerTarget - TC) * CenterApproachRate + GetNoise();
                 }
 
                 // 校准温度
