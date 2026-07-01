@@ -54,7 +54,11 @@ namespace ISO11820System.Forms
                 TargetTemp = AppGlobals.Instance.Config.TargetFurnaceTemp,
                 HeatingRate = AppGlobals.Instance.Config.HeatingRatePerSecond,
                 TempFluctuation = AppGlobals.Instance.Config.TempFluctuation,
-                StableThreshold = AppGlobals.Instance.Config.StableThreshold
+                StableThreshold = AppGlobals.Instance.Config.StableThreshold,
+                SurfaceFollowRatio = AppGlobals.Instance.Config.SurfaceFollowRatio,
+                CenterFollowRatio = AppGlobals.Instance.Config.CenterFollowRatio,
+                SurfaceApproachRate = AppGlobals.Instance.Config.SurfaceApproachRate,
+                CenterApproachRate = AppGlobals.Instance.Config.CenterApproachRate
             };
             simulator.Reset(AppGlobals.Instance.Config.InitialFurnaceTemp);
 
