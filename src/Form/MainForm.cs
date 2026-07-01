@@ -22,7 +22,6 @@ namespace ISO11820System.Forms
         // ===== Tab 1: 试验控制 =====
         private Label lblTF1, lblTF2, lblTS, lblTC, lblTCal;
         private Label lblState, lblTime, lblProductId, lblDrift;
-        private Panel statusLed;  // 状态指示灯
         private RichTextBox txtMessages;
         private Button btnNewTest, btnStartHeating, btnStopHeating;
         private Button btnStartRecording, btnStopRecording, btnSaveResult, btnSettings;
@@ -54,11 +53,7 @@ namespace ISO11820System.Forms
                 TargetTemp = AppGlobals.Instance.Config.TargetFurnaceTemp,
                 HeatingRate = AppGlobals.Instance.Config.HeatingRatePerSecond,
                 TempFluctuation = AppGlobals.Instance.Config.TempFluctuation,
-                StableThreshold = AppGlobals.Instance.Config.StableThreshold,
-                SurfaceFollowRatio = AppGlobals.Instance.Config.SurfaceFollowRatio,
-                CenterFollowRatio = AppGlobals.Instance.Config.CenterFollowRatio,
-                SurfaceApproachRate = AppGlobals.Instance.Config.SurfaceApproachRate,
-                CenterApproachRate = AppGlobals.Instance.Config.CenterApproachRate
+                StableThreshold = AppGlobals.Instance.Config.StableThreshold
             };
             simulator.Reset(AppGlobals.Instance.Config.InitialFurnaceTemp);
 
@@ -140,27 +135,12 @@ namespace ISO11820System.Forms
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            lblState = new Label { Text = "状态: 空闲", Location = new Point(35, 8), Size = new Size(280, 22), Font = new Font("微软雅黑", 10, FontStyle.Bold) };
-
-            // 状态指示灯（圆形色块）
-            statusLed = new Panel
-            {
-                Location = new Point(12, 12),
-                Size = new Size(16, 16),
-                BackColor = Color.Gray
-            };
-            statusLed.Paint += (s, e) =>
-            {
-                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var brush = new SolidBrush(statusLed.BackColor);
-                e.Graphics.FillEllipse(brush, 1, 1, 14, 14);
-            };
-
+            lblState = new Label { Text = "状态: 空闲", Location = new Point(10, 8), Size = new Size(300, 22), Font = new Font("微软雅黑", 10, FontStyle.Bold) };
             lblTime = new Label { Text = "记录时间: 0 秒", Location = new Point(10, 35), Size = new Size(150, 20) };
             lblProductId = new Label { Text = "样品编号: 无", Location = new Point(10, 58), Size = new Size(300, 20) };
             lblDrift = new Label { Text = "温漂: 0.00 °C/10min", Location = new Point(10, 81), Size = new Size(200, 20) };
 
-            panelState.Controls.AddRange(new Control[] { statusLed, lblState, lblTime, lblProductId, lblDrift });
+            panelState.Controls.AddRange(new Control[] { lblState, lblTime, lblProductId, lblDrift });
 
             // OxyPlot温度曲线图
             plotModel = new PlotModel { Title = "温度曲线" };
@@ -466,8 +446,6 @@ namespace ISO11820System.Forms
 
                 // 更新状态显示
                 lblState.Text = $"状态: {GetStateText(e.State)}";
-                statusLed.BackColor = GetStatusLedColor(e.State);
-                statusLed.Invalidate();  // 触发重绘圆形
                 lblTime.Text = $"记录时间: {e.RecordedSeconds} 秒";
                 lblProductId.Text = $"样品编号: {e.CurrentProductId}";
                 lblDrift.Text = $"温漂: {e.TempDrift:F2} °C/10min";
@@ -563,19 +541,6 @@ namespace ISO11820System.Forms
                 TestState.Recording => "记录中",
                 TestState.Complete => "完成",
                 _ => "未知"
-            };
-        }
-
-        private Color GetStatusLedColor(TestState state)
-        {
-            return state switch
-            {
-                TestState.Idle => Color.Gray,
-                TestState.Preparing => Color.DarkOrange,
-                TestState.Ready => Color.DodgerBlue,
-                TestState.Recording => Color.LimeGreen,
-                TestState.Complete => Color.DarkGreen,
-                _ => Color.Gray
             };
         }
 
