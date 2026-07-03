@@ -103,7 +103,8 @@ namespace ISO11820System.Data
                     deltatf1 REAL NOT NULL, deltatf2 REAL NOT NULL, deltatf REAL NOT NULL, deltats REAL NOT NULL, deltatc REAL NOT NULL,
                     memo TEXT NULL,
                     flag TEXT NULL,
-                    PRIMARY KEY (productid, testid)
+                    PRIMARY KEY (productid, testid),
+                    FOREIGN KEY (productid) REFERENCES productmaster (productid)
                 )",
 
                 // sensors表
