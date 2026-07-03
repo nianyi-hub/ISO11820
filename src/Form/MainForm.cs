@@ -22,7 +22,6 @@ namespace ISO11820System.Forms
         // ===== Tab 1: 试验控制 =====
         private Label lblTF1, lblTF2, lblTS, lblTC, lblTCal;
         private Label lblState, lblTime, lblProductId, lblDrift;
-        private Panel statusLed;  // 状态指示灯
         private RichTextBox txtMessages;
         private Button btnNewTest, btnStartHeating, btnStopHeating;
         private Button btnStartRecording, btnStopRecording, btnSaveResult, btnSettings;
@@ -35,7 +34,7 @@ namespace ISO11820System.Forms
         private TextBox txtQueryProductId;
         private ComboBox cmbQueryOperator;
         private DataGridView dgvTests;
-        private Button btnQuery, btnQueryDetail, btnQueryExport;
+        private Button btnQuery, btnQueryDetail, btnQueryExport, btnCleanupOldData;
 
         // ===== Tab 3: 设备校准 =====
         private Label lblCalTemp;
@@ -124,7 +123,7 @@ namespace ISO11820System.Forms
             lblTF2 = CreateLedLabel("炉温2: -- °C", 10, 70, Color.Orange);
             lblTS = CreateLedLabel("表面温: -- °C", 10, 105, Color.Blue);
             lblTC = CreateLedLabel("中心温: -- °C", 10, 140, Color.Green);
-            lblTCal = CreateLedLabel("校准温: -- °C", 10, 175, Color.Gray);
+            lblTCal = CreateLedLabel("校准温: -- °C", 170, 175, Color.Gray);
 
             panelTemp.Controls.AddRange(new Control[] { lblTitle, lblTF1, lblTF2, lblTS, lblTC, lblTCal });
 
@@ -136,27 +135,12 @@ namespace ISO11820System.Forms
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            lblState = new Label { Text = "状态: 空闲", Location = new Point(35, 8), Size = new Size(280, 22), Font = new Font("微软雅黑", 10, FontStyle.Bold) };
-
-            // 状态指示灯（圆形色块）
-            statusLed = new Panel
-            {
-                Location = new Point(12, 12),
-                Size = new Size(16, 16),
-                BackColor = Color.Gray
-            };
-            statusLed.Paint += (s, e) =>
-            {
-                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using var brush = new SolidBrush(statusLed.BackColor);
-                e.Graphics.FillEllipse(brush, 1, 1, 14, 14);
-            };
-
+            lblState = new Label { Text = "状态: 空闲", Location = new Point(10, 8), Size = new Size(300, 22), Font = new Font("微软雅黑", 10, FontStyle.Bold) };
             lblTime = new Label { Text = "记录时间: 0 秒", Location = new Point(10, 35), Size = new Size(150, 20) };
             lblProductId = new Label { Text = "样品编号: 无", Location = new Point(10, 58), Size = new Size(300, 20) };
             lblDrift = new Label { Text = "温漂: 0.00 °C/10min", Location = new Point(10, 81), Size = new Size(200, 20) };
 
-            panelState.Controls.AddRange(new Control[] { statusLed, lblState, lblTime, lblProductId, lblDrift });
+            panelState.Controls.AddRange(new Control[] { lblState, lblTime, lblProductId, lblDrift });
 
             // OxyPlot温度曲线图
             plotModel = new PlotModel { Title = "温度曲线" };
@@ -249,7 +233,7 @@ namespace ISO11820System.Forms
             {
                 Text = text,
                 Location = new Point(x, y),
-                Size = new Size(220, 28),
+                Size = new Size(150, 28),
                 Font = new Font("Consolas", 13, FontStyle.Bold),
                 ForeColor = color,
                 BackColor = Color.Black,
@@ -296,19 +280,22 @@ namespace ISO11820System.Forms
             var lblOp = new Label { Text = "操作员:", Location = new Point(620, 18), Size = new Size(60, 22) };
             cmbQueryOperator = new ComboBox { Location = new Point(680, 15), Size = new Size(110, 25), DropDownStyle = ComboBoxStyle.DropDownList };
 
-            btnQuery = new Button { Text = "查询", Location = new Point(810, 13), Size = new Size(80, 30) };
+            btnQuery = new Button { Text = "查询", Location = new Point(810, 13), Size = new Size(70, 30) };
             btnQuery.Click += BtnQuery_Click;
 
-            btnQueryDetail = new Button { Text = "查看详情", Location = new Point(900, 13), Size = new Size(90, 30), Enabled = false };
+            btnQueryDetail = new Button { Text = "查看详情", Location = new Point(890, 13), Size = new Size(90, 30), Enabled = false };
             btnQueryDetail.Click += BtnQueryDetail_Click;
 
-            btnQueryExport = new Button { Text = "导出Excel", Location = new Point(1000, 13), Size = new Size(100, 30), Enabled = false };
+            btnQueryExport = new Button { Text = "导出Excel", Location = new Point(990, 13), Size = new Size(80, 30), Enabled = false };
             btnQueryExport.Click += BtnQueryExport_Click;
+
+            btnCleanupOldData = new Button { Text = "清理旧数据", Location = new Point(1075, 13), Size = new Size(50, 30) };
+            btnCleanupOldData.Click += BtnCleanupOldData_Click;
 
             panelCriteria.Controls.AddRange(new Control[] {
                 lblFrom, dtpFrom, lblTo, dtpTo,
                 lblPid, txtQueryProductId, lblOp, cmbQueryOperator,
-                btnQuery, btnQueryDetail, btnQueryExport
+                btnQuery, btnQueryDetail, btnQueryExport, btnCleanupOldData
             });
 
             // 查询结果表格
@@ -462,8 +449,6 @@ namespace ISO11820System.Forms
 
                 // 更新状态显示
                 lblState.Text = $"状态: {GetStateText(e.State)}";
-                statusLed.BackColor = GetStatusLedColor(e.State);
-                statusLed.Invalidate();  // 触发重绘圆形
                 lblTime.Text = $"记录时间: {e.RecordedSeconds} 秒";
                 lblProductId.Text = $"样品编号: {e.CurrentProductId}";
                 lblDrift.Text = $"温漂: {e.TempDrift:F2} °C/10min";
@@ -559,19 +544,6 @@ namespace ISO11820System.Forms
                 TestState.Recording => "记录中",
                 TestState.Complete => "完成",
                 _ => "未知"
-            };
-        }
-
-        private Color GetStatusLedColor(TestState state)
-        {
-            return state switch
-            {
-                TestState.Idle => Color.Gray,
-                TestState.Preparing => Color.DarkOrange,
-                TestState.Ready => Color.DodgerBlue,
-                TestState.Recording => Color.LimeGreen,
-                TestState.Complete => Color.DarkGreen,
-                _ => Color.Gray
             };
         }
 
@@ -775,21 +747,6 @@ namespace ISO11820System.Forms
                 }).ToList();
 
                 dgvTests.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
-
-                // 行着色：合格绿色背景，不合格红色背景
-                foreach (DataGridViewRow row in dgvTests.Rows)
-                {
-                    if (row.Cells["判定"].Value?.ToString() == "合格")
-                    {
-                        row.DefaultCellStyle.BackColor = Color.FromArgb(230, 255, 230);
-                        row.DefaultCellStyle.ForeColor = Color.FromArgb(0, 100, 0);
-                    }
-                    else
-                    {
-                        row.DefaultCellStyle.BackColor = Color.FromArgb(255, 230, 230);
-                        row.DefaultCellStyle.ForeColor = Color.FromArgb(180, 0, 0);
-                    }
-                }
             }
             catch (Exception ex)
             {
@@ -882,6 +839,30 @@ namespace ISO11820System.Forms
             catch (Exception ex)
             {
                 MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnCleanupOldData_Click(object? sender, EventArgs e)
+        {
+            var result = MessageBox.Show(
+                "确定要清理30天前的试验记录吗？此操作不可撤销。",
+                "清理旧数据",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            try
+            {
+                var deletedCount = _dbHelper.DeleteOldTests();
+                BtnQuery_Click(sender, e);
+                MessageBox.Show($"已删除 {deletedCount} 条旧数据。", "清理完成",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"清理失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
