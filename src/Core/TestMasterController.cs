@@ -37,6 +37,9 @@ namespace ISO11820System.Core
         private Queue<double> _tf2History = new();
         private const int DRIFT_WINDOW_SIZE = 600; // 10分钟 = 600秒
 
+        // 图表冻结标志（试验完成后冻结，新建试验开始升温时解冻）
+        private bool _chartFrozen = false;
+
         // 系统消息队列
         private List<MasterMessage> _pendingMessages = new();
 
@@ -117,6 +120,7 @@ namespace ISO11820System.Core
             _tf2History.Clear();
             _chartDataCache.Clear();
             _chartElapsedTime = 0;
+            _chartFrozen = false;
 
             AddMessage("开始升温，系统升温中", MessageType.Info);
         }
@@ -172,6 +176,7 @@ namespace ISO11820System.Core
             _recordTimer = null;
 
             CurrentState = TestState.Complete;
+            _chartFrozen = true;
             _simulator.StopRecording();
 
             AddMessage($"用户手动停止记录，共记录 {_recordedSeconds} 秒", MessageType.Info);
@@ -181,6 +186,7 @@ namespace ISO11820System.Core
             {
                 AddMessage("无有效记录数据，回到升温状态", MessageType.Warning);
                 CurrentState = TestState.Preparing;
+                _chartFrozen = false;  // 无有效数据，解冻图表继续运行
             }
         }
 
@@ -254,16 +260,20 @@ namespace ISO11820System.Core
                 _tf2History.Dequeue();
             }
 
-            // 更新图表数据缓存
-            _chartElapsedTime += 0.8;
-            _chartDataCache.Add(new ChartDataPoint
+            // 更新图表数据缓存（试验完成后冻结图表，不再追加新数据；
+            // 即使状态回退到 Preparing（保持炉温），图表也保持冻结直到新试验开始升温）
+            if (CurrentState != TestState.Complete && !_chartFrozen)
             {
-                Time = _chartElapsedTime,
-                TF1 = data.TF1,
-                TF2 = data.TF2,
-                TS = data.TS,
-                TC = data.TC
-            });
+                _chartElapsedTime += 0.8;
+                _chartDataCache.Add(new ChartDataPoint
+                {
+                    Time = _chartElapsedTime,
+                    TF1 = data.TF1,
+                    TF2 = data.TF2,
+                    TS = data.TS,
+                    TC = data.TC
+                });
+            }
 
             // 状态机逻辑
             UpdateStateMachine(data);
@@ -292,6 +302,7 @@ namespace ISO11820System.Core
                 _recordTimer?.Dispose();
                 _recordTimer = null;
                 CurrentState = TestState.Complete;
+                _chartFrozen = true;
                 _simulator.StopRecording();
                 AddMessage($"记录时间到达 {TargetDurationSeconds} 秒，试验自动结束", MessageType.Info);
             }
@@ -326,6 +337,7 @@ namespace ISO11820System.Core
                         _recordTimer?.Dispose();
                         _recordTimer = null;
                         CurrentState = TestState.Complete;
+                        _chartFrozen = true;
                         _simulator.StopRecording();
                         AddMessage($"满足终止条件，试验结束（{_recordedSeconds / 60}分钟）", MessageType.Warning);
                         return;
@@ -374,6 +386,14 @@ namespace ISO11820System.Core
         /// </summary>
         private void BroadcastData((double TF1, double TF2, double TS, double TC, double TCal) data)
         {
+            // 温漂仅在温度稳定状态（Ready/Recording）下有意义
+            // 升温阶段（Preparing）斜率接近 HeatingRate，会产生无意义的超大数值
+            double tempDrift = 0;
+            if (CurrentState == TestState.Ready || CurrentState == TestState.Recording)
+            {
+                tempDrift = CalculateTempDrift(_tf1History);
+            }
+
             var args = new DataBroadcastEventArgs
             {
                 TF1 = data.TF1,
@@ -383,7 +403,7 @@ namespace ISO11820System.Core
                 TCal = data.TCal,
                 State = CurrentState,
                 RecordedSeconds = _recordedSeconds,
-                TempDrift = CalculateTempDrift(_tf1History),
+                TempDrift = tempDrift,
                 Messages = new List<MasterMessage>(_pendingMessages),
                 CurrentProductId = CurrentTest?.ProductId ?? "",
                 HasUnsavedCompleteTest = HasUnsavedCompleteTest(),
@@ -397,17 +417,21 @@ namespace ISO11820System.Core
 
         /// <summary>
         /// 计算温度漂移（°C/10min）使用MathNet线性回归
+        /// 每个数据点间隔0.8秒（DaqWorker采集周期），X轴使用实际秒数
+        /// 斜率单位：°C/s，乘以600秒得到°C/10min
         /// </summary>
         private double CalculateTempDrift(Queue<double> history)
         {
             if (history.Count < 10) return 0;
 
             var data = history.ToArray();
-            var x = Enumerable.Range(0, data.Length).Select(i => (double)i).ToArray();
+            // 每个数据点间隔0.8秒，使用实际时间（秒）作为X轴
+            var x = Enumerable.Range(0, data.Length).Select(i => (double)i * 0.8).ToArray();
             var y = data;
 
             var (intercept, slope) = Fit.Line(x, y);
-            return slope * 600; // 转换为每10分钟的漂移
+            // slope 单位现在是 °C/s，乘以600秒 = °C/10min
+            return slope * 600;
         }
 
         /// <summary>
@@ -445,12 +469,17 @@ namespace ISO11820System.Core
             CurrentTest.FinalTSTime = last.Time;
             CurrentTest.FinalTCTime = last.Time;
 
-            // 温升
-            CurrentTest.DeltaTF1 = CurrentTest.FinalTF1 - CurrentTest.AmbientTemp;
-            CurrentTest.DeltaTF2 = CurrentTest.FinalTF2 - CurrentTest.AmbientTemp;
-            CurrentTest.DeltaTS = CurrentTest.FinalTS - CurrentTest.AmbientTemp;
-            CurrentTest.DeltaTC = CurrentTest.FinalTC - CurrentTest.AmbientTemp;
-            CurrentTest.DeltaTF = CurrentTest.DeltaTS; // 样品温升取表面温升
+            // 温升计算
+            // ISO 11820判定项: 炉温相对于稳定温度(750°C)的上升幅度
+            // Δtf ≤ 50°C 表示材料不燃（炉温未因样品燃烧而显著升高）
+            double stabilizedTemp = _simulator.TargetTemp; // 750.0°C
+            CurrentTest.DeltaTF1 = Math.Max(0, CurrentTest.MaxTF1 - stabilizedTemp);
+            CurrentTest.DeltaTF2 = Math.Max(0, CurrentTest.MaxTF2 - stabilizedTemp);
+            // 【判定项】样品温升：取炉温1和炉温2中温升较大者
+            CurrentTest.DeltaTF = Math.Max(CurrentTest.DeltaTF1, CurrentTest.DeltaTF2);
+            // 表面温和中心温的温升（相对于环境温度，仅作为信息记录）
+            CurrentTest.DeltaTS = CurrentTest.MaxTS - CurrentTest.AmbientTemp;
+            CurrentTest.DeltaTC = CurrentTest.MaxTC - CurrentTest.AmbientTemp;
         }
 
         /// <summary>
