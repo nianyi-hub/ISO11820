@@ -5,6 +5,9 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using ISO11820System.Models;
+using OxyPlot;
+using OxyPlot.Series;
+using OxyPlot.Axes;
 
 namespace ISO11820System.Services
 {
@@ -177,12 +180,17 @@ namespace ISO11820System.Services
 
         // ======================== PDF（QuestPDF，原生中文支持）========================
 
-        public void ExportPdf(TestMaster test, string filePath)
+        public void ExportPdf(TestMaster test,
+            List<(int Time, double TF1, double TF2, double TS, double TC, double TCal)> data,
+            string filePath)
         {
             var dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
             bool passed = test.DeltaTF <= 50 && test.LostWeightPercent <= 50 && test.FlameDuration < 5;
+
+            // 预生成温度曲线图 PNG
+            byte[]? chartPng = GenerateChartPng(data);
 
             Document.Create(container =>
             {
@@ -276,6 +284,15 @@ namespace ISO11820System.Services
                         if (!string.IsNullOrEmpty(test.Memo))
                             col.Item().Text(t => { t.Span("备注: "); t.Span(test.Memo); });
 
+                        // 温度曲线图（嵌入PDF）
+                        if (chartPng != null && chartPng.Length > 0)
+                        {
+                            col.Item().PaddingTop(15);
+                            col.Item().Text("温度曲线").FontSize(14).Bold();
+                            col.Item().PaddingTop(5);
+                            col.Item().MaxWidth(500).Image(chartPng, ImageScaling.FitWidth);
+                        }
+
                         col.Item().PaddingTop(10);
                         col.Item().LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
                         col.Item().PaddingTop(10);
@@ -314,6 +331,48 @@ namespace ISO11820System.Services
         }
 
         // ======================== 查询结果导出 ========================
+
+        /// <summary>
+        /// 生成温度曲线图 PNG 字节数组（OxyPlot 渲染 → 内存流）
+        /// </summary>
+        private static byte[]? GenerateChartPng(
+            List<(int Time, double TF1, double TF2, double TS, double TC, double TCal)> data)
+        {
+            if (data == null || data.Count == 0) return null;
+
+            var model = new PlotModel { Title = "温度曲线" };
+            model.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "温度 (°C)",
+                Minimum = 0,
+                Maximum = 800
+            });
+            model.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "时间 (s)"
+            });
+
+            model.Series.Add(new LineSeries { Title = "炉温1", Color = OxyColor.FromRgb(255, 0, 0), StrokeThickness = 1 });
+            model.Series.Add(new LineSeries { Title = "炉温2", Color = OxyColor.FromRgb(255, 165, 0), StrokeThickness = 1 });
+            model.Series.Add(new LineSeries { Title = "表面温", Color = OxyColor.FromRgb(0, 0, 255), StrokeThickness = 1 });
+            model.Series.Add(new LineSeries { Title = "中心温", Color = OxyColor.FromRgb(0, 180, 0), StrokeThickness = 1 });
+            model.IsLegendVisible = true;
+
+            foreach (var d in data)
+            {
+                ((LineSeries)model.Series[0]).Points.Add(new DataPoint(d.Time, d.TF1));
+                ((LineSeries)model.Series[1]).Points.Add(new DataPoint(d.Time, d.TF2));
+                ((LineSeries)model.Series[2]).Points.Add(new DataPoint(d.Time, d.TS));
+                ((LineSeries)model.Series[3]).Points.Add(new DataPoint(d.Time, d.TC));
+            }
+
+            using var ms = new MemoryStream();
+            var exporter = new OxyPlot.WindowsForms.PngExporter { Width = 800, Height = 400, Resolution = 96 };
+            exporter.Export(model, ms);
+            return ms.ToArray();
+        }
 
         public void ExportQueryResults(List<TestMaster> tests, string filePath)
         {
