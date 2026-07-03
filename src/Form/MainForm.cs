@@ -29,7 +29,6 @@ namespace ISO11820System.Forms
         private PlotView plotView;
         private PlotModel plotModel;
         private LineSeries seriesTF1, seriesTF2, seriesTS, seriesTC;
-        private TestState _lastKnownState = TestState.Idle;  // 用于检测状态切换
 
         // ===== Tab 2: 记录查询 =====
         private DateTimePicker dtpFrom, dtpTo;
@@ -475,18 +474,6 @@ namespace ISO11820System.Forms
                 // 更新曲线图
                 UpdateChart(e.ChartData, e.State);
 
-                // 检测状态切换，在图表上画竖线标注
-                if (e.State != _lastKnownState && e.ChartData.Count > 0)
-                {
-                    double markerTime = e.ChartData.Last().Time;
-                    string? transitionLabel = GetTransitionLabel(_lastKnownState, e.State);
-                    if (transitionLabel != null)
-                    {
-                        AddStateMarker(markerTime, transitionLabel, GetMarkerColor(e.State));
-                    }
-                    _lastKnownState = e.State;
-                }
-
                 // 显示系统消息
                 foreach (var msg in e.Messages)
                 {
@@ -534,8 +521,8 @@ namespace ISO11820System.Forms
             seriesTS.Points.Clear();
             seriesTC.Points.Clear();
 
-            // 只显示最近的600个数据点（约10分钟）
-            int startIdx = Math.Max(0, data.Count - 600);
+            // 只显示最近的750个数据点（750 × 0.8s = 600s = 10分钟）
+            int startIdx = Math.Max(0, data.Count - 750);
             for (int i = startIdx; i < data.Count; i++)
             {
                 var pt = data[i];
@@ -586,64 +573,6 @@ namespace ISO11820System.Forms
                 TestState.Complete => Color.DarkGreen,
                 _ => Color.Gray
             };
-        }
-
-        /// <summary>
-        /// 获取状态切换对应的标注文字
-        /// </summary>
-        private string? GetTransitionLabel(TestState from, TestState to)
-        {
-            return to switch
-            {
-                TestState.Ready => "温度就绪",
-                TestState.Recording => "开始记录",
-                TestState.Complete => "试验完成",
-                TestState.Preparing when from == TestState.Ready => "温度回退",
-                TestState.Idle => "停止加热",
-                _ => null
-            };
-        }
-
-        /// <summary>
-        /// 获取标注线颜色（OxyPlot用）
-        /// </summary>
-        private OxyColor GetMarkerColor(TestState state)
-        {
-            return state switch
-            {
-                TestState.Ready => OxyColor.FromRgb(30, 144, 255),     // 蓝色
-                TestState.Recording => OxyColor.FromRgb(50, 205, 50),   // 绿色
-                TestState.Complete => OxyColor.FromRgb(220, 20, 60),    // 红色
-                TestState.Idle => OxyColor.FromRgb(128, 128, 128),      // 灰色
-                _ => OxyColor.FromRgb(255, 165, 0)                      // 橙色（回退等）
-            };
-        }
-
-        /// <summary>
-        /// 在图表上添加状态切换竖线标注
-        /// </summary>
-        private void AddStateMarker(double time, string label, OxyColor color)
-        {
-            // 清理超过15分钟的旧标注，防止积累
-            var cutoff = time - 900;
-            var stale = plotModel.Annotations
-                .Where(a => a is LineAnnotation la && la.X < cutoff)
-                .ToList();
-            foreach (var a in stale)
-                plotModel.Annotations.Remove(a);
-
-            plotModel.Annotations.Add(new LineAnnotation
-            {
-                Type = LineAnnotationType.Vertical,
-                X = time,
-                Color = color,
-                LineStyle = LineStyle.Dash,
-                StrokeThickness = 1.5,
-                Text = label,
-                TextOrientation = AnnotationTextOrientation.Vertical,
-                FontSize = 10,
-                FontWeight = FontWeights.Bold
-            });
         }
 
         private void UpdateButtonStates(TestState state, bool hasUnsaved)
@@ -708,7 +637,7 @@ namespace ISO11820System.Forms
                 case TestState.Complete:
                     btnNewTest.Enabled = false;
                     btnStartHeating.Enabled = false;
-                    btnStopHeating.Enabled = false;
+                    btnStopHeating.Enabled = true;
                     btnStartRecording.Enabled = false;
                     btnStopRecording.Enabled = false;
                     btnSaveResult.Enabled = true;
@@ -777,7 +706,7 @@ namespace ISO11820System.Forms
                         var pdfPath = Path.Combine(reportDir, $"{savedTest.TestId}_报告.pdf");
 
                         _exportService.ExportExcel(savedTest, tempData, excelPath);
-                        _exportService.ExportPdf(savedTest, pdfPath);
+                        _exportService.ExportPdf(savedTest, tempData, pdfPath);
 
                         MessageBox.Show($"试验完成！\nExcel: {excelPath}\nPDF: {pdfPath}", "完成",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
