@@ -691,5 +691,15 @@ namespace ISO11820System.Data
             }
             return result;
         }
+
+        // ===== 删除30天前的试验记录 =====
+        public int DeleteOldTests(int days = 30)
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"DELETE FROM testmaster WHERE testdate < date('now', '-{days} day')";
+            return cmd.ExecuteNonQuery();
+        }
     }
 }
