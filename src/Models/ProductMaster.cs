@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,18 +13,23 @@ namespace ISO11820System.Models
     public class ProductMaster
     {
         /// <summary>样品编号（主键）</summary>
+        [Display(Name = "样品编号")]
         public string ProductId { get; set; } = string.Empty;
 
         /// <summary>样品名称</summary>
+        [Display(Name = "样品名称")]
         public string ProductName { get; set; } = string.Empty;
 
         /// <summary>规格型号</summary>
+        [Display(Name = "规格型号")]
         public string Specific { get; set; } = string.Empty;
 
         /// <summary>直径（mm）</summary>
+        [Display(Name = "直径")]
         public double Diameter { get; set; }
 
         /// <summary>高度（mm）</summary>
+        [Display(Name = "高度")]
         public double Height { get; set; }
 
         /// <summary>备用标记字段</summary>
