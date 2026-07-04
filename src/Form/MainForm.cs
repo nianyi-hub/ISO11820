@@ -18,6 +18,11 @@ namespace ISO11820System.Forms
         private readonly TestMasterController _controller;
         private readonly DbHelper _dbHelper;
         private readonly ExportService _exportService;
+        private readonly SensorSimulator _simulator;
+
+        // 系统托盘
+        private NotifyIcon notifyIcon;
+        private ContextMenuStrip trayContextMenu;
 
         // ===== Tab 1: 试验控制 =====
         private Label lblTF1, lblTF2, lblTS, lblTC, lblTCal;
@@ -25,17 +30,21 @@ namespace ISO11820System.Forms
         private Panel statusLed;  // 状态指示灯
         private RichTextBox txtMessages;
         private Button btnNewTest, btnStartHeating, btnStopHeating;
-        private Button btnStartRecording, btnStopRecording, btnSaveResult, btnSettings;
+        private Button btnStartRecording, btnStopRecording, btnSaveResult, btnSettings, btnDataMaintenance;
         private PlotView plotView;
         private PlotModel plotModel;
         private LineSeries seriesTF1, seriesTF2, seriesTS, seriesTC;
+
+        // 升温速度调节
+        private TrackBar trackHeatingRate;
+        private Label lblHeatingRate;
 
         // ===== Tab 2: 记录查询 =====
         private DateTimePicker dtpFrom, dtpTo;
         private TextBox txtQueryProductId;
         private ComboBox cmbQueryOperator;
         private DataGridView dgvTests;
-        private Button btnQuery, btnQueryDetail, btnQueryExport;
+        private Button btnQuery, btnQueryDetail, btnQueryExport, btnQueryCompare;
 
         // ===== Tab 3: 设备校准 =====
         private Label lblCalTemp;
@@ -49,20 +58,27 @@ namespace ISO11820System.Forms
             _exportService = new ExportService();
 
             // 初始化仿真引擎和控制器
-            var simulator = new SensorSimulator
+            _simulator = new SensorSimulator
             {
                 TargetTemp = AppGlobals.Instance.Config.TargetFurnaceTemp,
                 HeatingRate = AppGlobals.Instance.Config.HeatingRatePerSecond,
                 TempFluctuation = AppGlobals.Instance.Config.TempFluctuation,
                 StableThreshold = AppGlobals.Instance.Config.StableThreshold
             };
-            simulator.Reset(AppGlobals.Instance.Config.InitialFurnaceTemp);
+            _simulator.Reset(AppGlobals.Instance.Config.InitialFurnaceTemp);
 
-            var daqWorker = new DaqWorker(simulator, AppGlobals.Instance.Config.EnableSimulation);
-            _controller = new TestMasterController(_dbHelper, simulator, daqWorker);
+            var daqWorker = new DaqWorker(_simulator, AppGlobals.Instance.Config.EnableSimulation);
+            _controller = new TestMasterController(_dbHelper, _simulator, daqWorker);
             _controller.DataBroadcast += OnDataBroadcast;
 
             InitializeComponent();
+
+            // 启用键盘快捷键
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
+
+            // 初始化系统托盘
+            InitializeTray();
 
             // 启动控制器
             _controller.Start();
@@ -204,13 +220,14 @@ namespace ISO11820System.Forms
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            btnNewTest = new Button { Text = "新建试验", Location = new Point(10, 18), Size = new Size(120, 35) };
-            btnStartHeating = new Button { Text = "开始升温", Location = new Point(140, 18), Size = new Size(120, 35), Enabled = false };
-            btnStopHeating = new Button { Text = "停止升温", Location = new Point(270, 18), Size = new Size(120, 35), Enabled = false };
-            btnStartRecording = new Button { Text = "开始记录", Location = new Point(400, 18), Size = new Size(120, 35), Enabled = false };
-            btnStopRecording = new Button { Text = "停止记录", Location = new Point(530, 18), Size = new Size(120, 35), Enabled = false };
-            btnSaveResult = new Button { Text = "试验记录", Location = new Point(660, 18), Size = new Size(120, 35), Enabled = false };
-            btnSettings = new Button { Text = "参数设置", Location = new Point(790, 18), Size = new Size(120, 35) };
+            btnNewTest = new Button { Text = "新建试验 (Ctrl+N)", Location = new Point(10, 18), Size = new Size(130, 35) };
+            btnStartHeating = new Button { Text = "开始升温 (F5)", Location = new Point(148, 18), Size = new Size(130, 35), Enabled = false };
+            btnStopHeating = new Button { Text = "停止升温 (F6)", Location = new Point(286, 18), Size = new Size(130, 35), Enabled = false };
+            btnStartRecording = new Button { Text = "开始记录 (F7)", Location = new Point(424, 18), Size = new Size(130, 35), Enabled = false };
+            btnStopRecording = new Button { Text = "停止记录 (F8)", Location = new Point(562, 18), Size = new Size(130, 35), Enabled = false };
+            btnSaveResult = new Button { Text = "试验记录", Location = new Point(700, 18), Size = new Size(120, 35), Enabled = false };
+            btnSettings = new Button { Text = "参数设置", Location = new Point(828, 18), Size = new Size(120, 35) };
+            btnDataMaintenance = new Button { Text = "数据维护", Location = new Point(956, 18), Size = new Size(120, 35) };
 
             btnNewTest.Click += BtnNewTest_Click;
             btnStartHeating.Click += BtnStartHeating_Click;
@@ -219,18 +236,41 @@ namespace ISO11820System.Forms
             btnStopRecording.Click += BtnStopRecording_Click;
             btnSaveResult.Click += BtnSaveResult_Click;
             btnSettings.Click += BtnSettings_Click;
+            btnDataMaintenance.Click += BtnDataMaintenance_Click;
 
             panelButtons.Controls.AddRange(new Control[] {
                 btnNewTest, btnStartHeating, btnStopHeating, btnStartRecording,
-                btnStopRecording, btnSaveResult, btnSettings
+                btnStopRecording, btnSaveResult, btnSettings, btnDataMaintenance
             });
 
+            // 升温速度调节滑块
+            lblHeatingRate = new Label
+            {
+                Text = $"升温速度: {AppGlobals.Instance.Config.HeatingRatePerSecond:F0} °C/秒",
+                Location = new Point(10, 436),
+                Size = new Size(200, 22),
+                Font = new Font("微软雅黑", 9)
+            };
+
+            trackHeatingRate = new TrackBar
+            {
+                Location = new Point(10, 458),
+                Size = new Size(400, 45),
+                Minimum = 1,
+                Maximum = 100,
+                Value = (int)Math.Clamp(AppGlobals.Instance.Config.HeatingRatePerSecond, 1, 100),
+                TickFrequency = 10,
+                SmallChange = 1,
+                LargeChange = 10
+            };
+            trackHeatingRate.Scroll += TrackHeatingRate_Scroll;
+
             // 系统消息区域
-            var lblMessages = new Label { Text = "系统消息:", Location = new Point(10, 440), Size = new Size(150, 20) };
+            var lblMessages = new Label { Text = "系统消息:", Location = new Point(10, 500), Size = new Size(150, 20) };
             txtMessages = new RichTextBox
             {
-                Location = new Point(10, 460),
-                Size = new Size(1130, 270),
+                Location = new Point(10, 520),
+                Size = new Size(1130, 210),
                 ReadOnly = true,
                 BackColor = Color.Black,
                 ForeColor = Color.White,
@@ -239,7 +279,8 @@ namespace ISO11820System.Forms
             };
 
             tab.Controls.AddRange(new Control[] {
-                panelTemp, panelState, plotView, panelButtons, lblMessages, txtMessages
+                panelTemp, panelState, plotView, panelButtons,
+                lblHeatingRate, trackHeatingRate, lblMessages, txtMessages
             });
         }
 
@@ -302,13 +343,16 @@ namespace ISO11820System.Forms
             btnQueryDetail = new Button { Text = "查看详情", Location = new Point(900, 13), Size = new Size(90, 30), Enabled = false };
             btnQueryDetail.Click += BtnQueryDetail_Click;
 
-            btnQueryExport = new Button { Text = "导出Excel", Location = new Point(1000, 13), Size = new Size(100, 30), Enabled = false };
+            btnQueryCompare = new Button { Text = "对比", Location = new Point(1000, 13), Size = new Size(60, 30), Enabled = false };
+            btnQueryCompare.Click += BtnQueryCompare_Click;
+
+            btnQueryExport = new Button { Text = "导出", Location = new Point(1065, 13), Size = new Size(65, 30), Enabled = false };
             btnQueryExport.Click += BtnQueryExport_Click;
 
             panelCriteria.Controls.AddRange(new Control[] {
                 lblFrom, dtpFrom, lblTo, dtpTo,
                 lblPid, txtQueryProductId, lblOp, cmbQueryOperator,
-                btnQuery, btnQueryDetail, btnQueryExport
+                btnQuery, btnQueryDetail, btnQueryCompare, btnQueryExport
             });
 
             // 查询结果表格
@@ -321,12 +365,13 @@ namespace ISO11820System.Forms
                 AllowUserToDeleteRows = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
+                MultiSelect = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             dgvTests.SelectionChanged += (s, e) =>
             {
-                btnQueryDetail.Enabled = dgvTests.SelectedRows.Count > 0;
+                btnQueryDetail.Enabled = dgvTests.SelectedRows.Count == 1;
+                btnQueryCompare.Enabled = dgvTests.SelectedRows.Count == 2;
                 btnQueryExport.Enabled = dgvTests.Rows.Count > 0;
             };
             dgvTests.CellDoubleClick += (s, e) => ShowTestDetail();
@@ -539,10 +584,21 @@ namespace ISO11820System.Forms
                 var xAxis = plotModel.Axes[1] as LinearAxis;
                 if (xAxis != null)
                 {
-                    // 至少显示60秒，最多显示最近600秒
-                    double windowSize = Math.Max(60, Math.Min(600, data.Count * 0.8));
-                    xAxis.Minimum = Math.Max(0, lastTime - windowSize);
-                    xAxis.Maximum = lastTime + 5;
+                    // 固定窗口大小：显示最近100秒的数据窗口
+                    // 数据不足100秒时，固定显示 0~100 秒范围，避免横坐标只显示几秒钟
+                    const double windowSize = 100.0;
+                    if (lastTime <= windowSize)
+                    {
+                        // 数据尚未填满一个窗口：固定显示 0 ~ windowSize
+                        xAxis.Minimum = 0;
+                        xAxis.Maximum = windowSize + 5;
+                    }
+                    else
+                    {
+                        // 数据已超过窗口大小：滚动显示最近 windowSize 秒
+                        xAxis.Minimum = lastTime - windowSize;
+                        xAxis.Maximum = lastTime + 5;
+                    }
                 }
             }
 
@@ -650,6 +706,49 @@ namespace ISO11820System.Forms
 
         #region 按钮事件
 
+        private void MainForm_KeyDown(object? sender, KeyEventArgs e)
+        {
+            // Ctrl+N: 新建试验
+            if (e.Control && e.KeyCode == Keys.N && btnNewTest.Enabled)
+            {
+                e.Handled = true;
+                BtnNewTest_Click(sender, e);
+                return;
+            }
+
+            switch (e.KeyCode)
+            {
+                case Keys.F5:
+                    if (btnStartHeating.Enabled)
+                    {
+                        e.Handled = true;
+                        BtnStartHeating_Click(sender, e);
+                    }
+                    break;
+                case Keys.F6:
+                    if (btnStopHeating.Enabled)
+                    {
+                        e.Handled = true;
+                        BtnStopHeating_Click(sender, e);
+                    }
+                    break;
+                case Keys.F7:
+                    if (btnStartRecording.Enabled)
+                    {
+                        e.Handled = true;
+                        BtnStartRecording_Click(sender, e);
+                    }
+                    break;
+                case Keys.F8:
+                    if (btnStopRecording.Enabled)
+                    {
+                        e.Handled = true;
+                        BtnStopRecording_Click(sender, e);
+                    }
+                    break;
+            }
+        }
+
         private void BtnNewTest_Click(object? sender, EventArgs e)
         {
             using var form = new NewTestForm(_dbHelper);
@@ -736,6 +835,67 @@ namespace ISO11820System.Forms
                 MessageBox.Show("未找到配置文件 appsettings.json", "参数设置",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private void BtnDataMaintenance_Click(object? sender, EventArgs e)
+        {
+            var result = MessageBox.Show(
+                "将先备份数据库，再清理30天前的旧试验记录。\n\n是否继续？",
+                "数据维护", MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
+
+            if (result != DialogResult.OK) return;
+
+            try
+            {
+                var dbPath = AppGlobals.Instance.Config.SqlitePath;
+
+                // 1. 备份数据库
+                var backupPath = dbPath.Replace(".db", $"_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
+                File.Copy(dbPath, backupPath);
+
+                // 2. 清理旧数据
+                int deletedCount = 0;
+                using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+                {
+                    conn.Open();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "DELETE FROM testmaster WHERE testdate < date('now', '-30 days')";
+                    deletedCount = cmd.ExecuteNonQuery();
+                }
+
+                // 3. 报告结果
+                MessageBox.Show(
+                    $"备份已保存至:\n{backupPath}\n\n已清理 {deletedCount} 条旧记录",
+                    "数据维护完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"操作失败: {ex.Message}", "错误",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void TrackHeatingRate_Scroll(object? sender, EventArgs e)
+        {
+            var rate = trackHeatingRate.Value;
+            lblHeatingRate.Text = $"升温速度: {rate} °C/秒";
+            _simulator.HeatingRate = rate;
+
+            // 写入 appsettings.json
+            try
+            {
+                var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+                if (File.Exists(configPath))
+                {
+                    var json = File.ReadAllText(configPath);
+                    var updated = System.Text.RegularExpressions.Regex.Replace(
+                        json,
+                        @"""HeatingRatePerSecond"":\s*\d+(\.\d+)?",
+                        $"\"HeatingRatePerSecond\": {rate}");
+                    File.WriteAllText(configPath, updated);
+                }
+            }
+            catch { /* 静默失败，不影响主流程 */ }
         }
 
         #endregion
@@ -885,6 +1045,49 @@ namespace ISO11820System.Forms
             }
         }
 
+        private void BtnQueryCompare_Click(object? sender, EventArgs e)
+        {
+            if (dgvTests.SelectedRows.Count != 2) return;
+
+            try
+            {
+                var row1 = dgvTests.SelectedRows[0];
+                var row2 = dgvTests.SelectedRows[1];
+                var pid1 = row1.Cells["样品编号"].Value?.ToString() ?? "";
+                var tid1 = row1.Cells["试验ID"].Value?.ToString() ?? "";
+                var pid2 = row2.Cells["样品编号"].Value?.ToString() ?? "";
+                var tid2 = row2.Cells["试验ID"].Value?.ToString() ?? "";
+
+                var test1 = _dbHelper.GetTest(pid1, tid1);
+                var test2 = _dbHelper.GetTest(pid2, tid2);
+
+                if (test1 == null || test2 == null)
+                {
+                    MessageBox.Show("未找到试验记录", "错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                bool passed1 = test1.DeltaTF <= 50 && test1.LostWeightPercent <= 50 && test1.FlameDuration < 5;
+                bool passed2 = test2.DeltaTF <= 50 && test2.LostWeightPercent <= 50 && test2.FlameDuration < 5;
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"{"项目",-16} {"试验A",-24} {"试验B",-24}");
+                sb.AppendLine(new string('-', 64));
+                sb.AppendLine($"{"样品编号",-16} {test1.ProductId,-24} {test2.ProductId,-24}");
+                sb.AppendLine($"{"试验日期",-16} {test1.TestDate,-24:yyyy-MM-dd} {test2.TestDate,-24:yyyy-MM-dd}");
+                sb.AppendLine($"{"失重率(%)",-16} {test1.LostWeightPercent,-24:F2} {test2.LostWeightPercent,-24:F2}");
+                sb.AppendLine($"{"样品温升(°C)",-16} {test1.DeltaTF,-24:F1} {test2.DeltaTF,-24:F1}");
+                sb.AppendLine($"{"火焰时长(秒)",-16} {test1.FlameDuration,-24} {test2.FlameDuration,-24}");
+                sb.AppendLine($"{"判定结论",-16} {(passed1 ? "合格" : "不合格"),-24} {(passed2 ? "合格" : "不合格"),-24}");
+
+                MessageBox.Show(sb.ToString(), "试验记录对比", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"对比失败: {ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         #endregion
 
         #region Tab 3: 设备校准事件
@@ -949,8 +1152,69 @@ namespace ISO11820System.Forms
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // 如果试验进行中，弹确认框
+            if (_controller.CurrentTest != null && _controller.CurrentState != TestState.Idle)
+            {
+                var result = MessageBox.Show("试验正在进行中，确定退出吗？", "确认退出",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (result != DialogResult.Yes)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
             _controller.Stop();
+            notifyIcon.Visible = false;
+            notifyIcon.Dispose();
             base.OnFormClosing(e);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.Hide();
+                this.ShowInTaskbar = false;
+            }
+        }
+
+        private void InitializeTray()
+        {
+            trayContextMenu = new ContextMenuStrip();
+
+            var menuShow = new ToolStripMenuItem("显示主窗口");
+            menuShow.Click += (s, e) =>
+            {
+                this.Show();
+                this.WindowState = FormWindowState.Normal;
+                this.ShowInTaskbar = true;
+                this.Activate();
+            };
+
+            var menuExit = new ToolStripMenuItem("退出程序");
+            menuExit.Click += (s, e) => this.Close();
+
+            trayContextMenu.Items.Add(menuShow);
+            trayContextMenu.Items.Add(new ToolStripSeparator());
+            trayContextMenu.Items.Add(menuExit);
+
+            notifyIcon = new NotifyIcon
+            {
+                Text = "ISO 11820 试验系统",
+                Icon = this.Icon ?? SystemIcons.Application,
+                ContextMenuStrip = trayContextMenu,
+                Visible = true
+            };
+
+            notifyIcon.DoubleClick += (s, e) =>
+            {
+                this.Show();
+                this.WindowState = FormWindowState.Normal;
+                this.ShowInTaskbar = true;
+                this.Activate();
+            };
         }
     }
 }
