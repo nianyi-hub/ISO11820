@@ -8,41 +8,31 @@ using System.Threading.Tasks;
 namespace ISO11820System.Models
 {
     /// <summary>
-    /// 试验设备数据模型
+    /// 样品信息数据模型
     /// </summary>
-    public class Apparatus
+    public class ProductMaster
     {
-        /// <summary>设备ID（主键）</summary>
-        [Display(Name = "设备ID")]
-        public int ApparatusId { get; set; }
+        /// <summary>样品编号（主键）</summary>
+        [Display(Name = "样品编号")]
+        public string ProductId { get; set; } = string.Empty;
 
-        /// <summary>设备内部编号</summary>
-        [Display(Name = "设备内部编号")]
-        public string InnerNumber { get; set; } = string.Empty;
+        /// <summary>样品名称</summary>
+        [Display(Name = "样品名称")]
+        public string ProductName { get; set; } = string.Empty;
 
-        /// <summary>设备名称</summary>
-        [Display(Name = "设备名称")]
-        public string ApparatusName { get; set; } = string.Empty;
+        /// <summary>规格型号</summary>
+        [Display(Name = "规格型号")]
+        public string Specific { get; set; } = string.Empty;
 
-        /// <summary>检定有效期开始日期</summary>
-        [Display(Name = "检定有效期开始日期")]
-        public DateTime CheckDateFrom { get; set; }
+        /// <summary>直径（mm）</summary>
+        [Display(Name = "直径")]
+        public double Diameter { get; set; }
 
-        /// <summary>检定有效期结束日期</summary>
-        [Display(Name = "检定有效期结束日期")]
-        public DateTime CheckDateTo { get; set; }
+        /// <summary>高度（mm）</summary>
+        [Display(Name = "高度")]
+        public double Height { get; set; }
 
-        /// <summary>PID控制器串口</summary>
-        [Display(Name = "PID控制器串口")]
-        public string PidPort { get; set; } = string.Empty;
-
-        /// <summary>功率控制串口</summary>
-        [Display(Name = "功率控制串口")]
-        public string PowerPort { get; set; } = string.Empty;
-
-        /// <summary>恒功率值（上次记录的）</summary>
-        [Display(Name = "恒功率值")]
-        public int? ConstPower { get; set; }
+        /// <summary>备用标记字段</summary>
+        public string? Flag { get; set; }
     }
 }
-
