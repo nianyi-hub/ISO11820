@@ -554,7 +554,7 @@ namespace ISO11820System.Forms
             return state switch
             {
                 TestState.Idle => "空闲",
-                TestState.Preparing => "升温中",
+                TestState.Preparing => _controller.CurrentTest != null ? "升温中" : "恒温待命",
                 TestState.Ready => "就绪",
                 TestState.Recording => "记录中",
                 TestState.Complete => "完成",
@@ -584,7 +584,7 @@ namespace ISO11820System.Forms
             {
                 btnNewTest.Enabled = false;
                 btnStartHeating.Enabled = false;
-                btnStopHeating.Enabled = false;
+                btnStopHeating.Enabled = true;
                 btnStartRecording.Enabled = false;
                 btnStopRecording.Enabled = false;
                 btnSaveResult.Enabled = true;
@@ -605,7 +605,7 @@ namespace ISO11820System.Forms
                     break;
 
                 case TestState.Preparing:
-                    btnNewTest.Enabled = false;
+                    btnNewTest.Enabled = !hasActiveTest;
                     btnStartHeating.Enabled = false;
                     btnStopHeating.Enabled = true;
                     btnStartRecording.Enabled = false;
