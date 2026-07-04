@@ -20,6 +20,33 @@
 
 ---
 
+##  小组成员与分工
+
+| 成员 | 负责模块 | 主要职责 | 对应代码/文件 |
+|------|----------|----------|---------------|
+| **华瑞涵** | 数据库 | SQLite 数据库设计与实现、表结构创建、CRUD 操作封装、数据初始化 | `Data/DbHelper.cs`、数据库建表脚本、初始数据写入 |
+| **杨鑫** | 仿真核心 | 温度仿真引擎开发、状态机设计与实现、数据采集工作器、事件广播机制 | `Core/TestMasterController.cs`、`Services/Simulation/DaqWorker.cs`、`Services/Simulation/SensorSimulator.cs` |
+| **屈天成** | UI 界面 | WinForms 窗体设计、控件布局与交互、实时曲线图表、LED 温度面板、系统消息日志 | `Form/LoginForm.cs`、`Form/MainForm.cs`、`Form/NewTestForm.cs`、`Form/TestRecordForm.cs` |
+| **周天晓** | 导出 / IO | CSV/Excel/PDF 报告导出、文件存储管理、温度时序数据读写、校准数据管理 | `Services/Export/ExportService.cs`、文件存储路径管理、报告模板 |
+| **唐锐** | 测试 / 基建 | 单元测试编写、项目配置管理、全局应用上下文、日志系统、开发文档维护 | `ISO11820System.Tests/`、`Utilities/AppContext.cs`、`Utilities/ConfigManager.cs`、`Utilities/Logger.cs`、`appsettings.json` |
+
+### 分工依赖关系
+
+```
+华瑞涵 (数据库)
+    │
+    ├──▶ 杨鑫 (仿真核心) ── 依赖数据库读写试验数据
+    │
+    ├──▶ 屈天成 (UI 界面) ──── 依赖数据库获取配置与记录
+    │
+    ├──▶ 周天晓 (导出 / IO) ── 依赖数据库读取历史数据
+    │
+    └──▶ 唐锐 (测试 / 基建) ─ 贯穿全流程，为各组提供基础支撑
+```
+
+---
+
+
 ##  核心功能
 
 ### 用户与权限
