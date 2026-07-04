@@ -144,6 +144,7 @@ namespace ISO11820System.Core
         public void StartRecording()
         {
             if (CurrentState != TestState.Ready) return;
+            if (CurrentTest == null) return;
 
             // 检查是否有未保存的试验
             if (HasUnsavedCompleteTest())
@@ -241,7 +242,10 @@ namespace ISO11820System.Core
         /// </summary>
         public bool HasUnsavedCompleteTest()
         {
-            return _recordedSeconds > 0 &&
+            // 必须排除 Recording 状态：记录中 _recordedSeconds > 0 且 Flag != "10000000"
+            // 会同时成立，但此时试验并未"完成"，只是正在记录。
+            return CurrentState != TestState.Recording &&
+                   _recordedSeconds > 0 &&
                    CurrentTest != null &&
                    CurrentTest.Flag != "10000000";
         }
@@ -354,8 +358,8 @@ namespace ISO11820System.Core
             switch (CurrentState)
             {
                 case TestState.Preparing:
-                    // 检查是否达到就绪条件
-                    if (_simulator.CheckReadyCriteria())
+                    // 检查是否达到就绪条件（必须有活动试验才能进入 Ready）
+                    if (CurrentTest != null && _simulator.CheckReadyCriteria())
                     {
                         CurrentState = TestState.Ready;
                         AddMessage("温度已稳定，可以开始记录", MessageType.Info);
