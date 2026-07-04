@@ -1,0 +1,28 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ISO11820System", "src\ISO11820System.csproj", "{4B473FEB-AB3D-4C49-97A4-CC6FF2DF4E73}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ISO11820System.Tests", "ISO11820System.Tests\ISO11820System.Tests.csproj", "{880630EE-FD24-4AFF-89CB-D8EC20CCBF07}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4B473FEB-AB3D-4C49-97A4-CC6FF2DF4E73}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B473FEB-AB3D-4C49-97A4-CC6FF2DF4E73}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B473FEB-AB3D-4C49-97A4-CC6FF2DF4E73}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B473FEB-AB3D-4C49-97A4-CC6FF2DF4E73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{880630EE-FD24-4AFF-89CB-D8EC20CCBF07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{880630EE-FD24-4AFF-89CB-D8EC20CCBF07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{880630EE-FD24-4AFF-89CB-D8EC20CCBF07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{880630EE-FD24-4AFF-89CB-D8EC20CCBF07}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

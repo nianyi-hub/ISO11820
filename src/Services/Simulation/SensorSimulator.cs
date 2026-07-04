@@ -114,9 +114,9 @@ namespace ISO11820System.Services
                 // 升温阶段
                 if (TF1 < TargetTemp - StableThreshold)
                 {
-                    // 快速升温
-                    TF1 += HeatingRate * deltaTime + GetNoise();
-                    TF2 += HeatingRate * deltaTime + GetNoise();
+                    // 快速升温（不超过目标温度，防止冲过头）
+                    TF1 = Math.Min(TF1 + HeatingRate * deltaTime + GetNoise(), TargetTemp);
+                    TF2 = Math.Min(TF2 + HeatingRate * deltaTime + GetNoise(), TargetTemp);
 
                     // 表面温和中心温在非记录阶段跟随较慢
                     if (!_isRecording)
